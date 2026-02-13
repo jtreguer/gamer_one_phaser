@@ -36,10 +36,10 @@ export default class UIScene extends Phaser.Scene {
     this.announceText = this.add.text(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 100, '', style('28px', CONFIG.COLORS.PLANET_ATMOSPHERE))
       .setOrigin(0.5).setDepth(101).setAlpha(0);
 
-    // Warning vignette
-    this.vignette = this.add.graphics();
-    this.vignette.setDepth(99).setAlpha(0);
-    this._drawVignette();
+    // Warning vignette (radial gradient)
+    this._createVignetteTexture();
+    this.vignette = this.add.image(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, '__vignette')
+      .setDepth(99).setAlpha(0);
 
     // Listen for events forwarded from GameScene (via UIScene.events.emit)
     this.events.on(EVENTS.SCORE_CHANGED, this._onScoreChanged, this);
@@ -128,24 +128,28 @@ export default class UIScene extends Phaser.Scene {
     });
   }
 
-  _drawVignette() {
+  _createVignetteTexture() {
+    if (this.textures.exists('__vignette')) return;
+
     const w = CONFIG.GAME_WIDTH;
     const h = CONFIG.GAME_HEIGHT;
-    const g = this.vignette;
+    const canvas = this.textures.createCanvas('__vignette', w, h);
+    const ctx = canvas.getContext();
 
-    // Draw red vignette around edges
-    const thickness = 80;
-    g.fillStyle(CONFIG.TINT.WARNING_VIGNETTE, 0.6);
+    // Radial gradient: transparent center → red edges
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.sqrt(cx * cx + cy * cy);
 
-    // Top
-    g.fillGradientStyle(CONFIG.TINT.WARNING_VIGNETTE, CONFIG.TINT.WARNING_VIGNETTE, 0x000000, 0x000000, 0.6, 0.6, 0, 0);
-    g.fillRect(0, 0, w, thickness);
-    // Bottom
-    g.fillRect(0, h - thickness, w, thickness);
-    // Left
-    g.fillRect(0, 0, thickness, h);
-    // Right
-    g.fillRect(w - thickness, 0, thickness, h);
+    const gradient = ctx.createRadialGradient(cx, cy, radius * 0.35, cx, cy, radius);
+    gradient.addColorStop(0, 'rgba(96, 0, 0, 0)');
+    gradient.addColorStop(0.5, 'rgba(96, 0, 0, 0)');
+    gradient.addColorStop(0.75, 'rgba(96, 0, 0, 0.4)');
+    gradient.addColorStop(1, 'rgba(96, 0, 0, 0.9)');
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+    canvas.refresh();
   }
 
   shutdown() {

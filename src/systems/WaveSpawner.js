@@ -4,6 +4,7 @@ import { randomBetween } from '../utils/math.js';
 import { generateSpawnPoint, generateTargetPoint } from './SpawnValidator.js';
 import EnemyMissile from '../objects/EnemyMissile.js';
 import MirvMissile from '../objects/MirvMissile.js';
+import SineMissile from '../objects/SineMissile.js';
 
 export default class WaveSpawner {
   constructor(scene) {
@@ -98,9 +99,15 @@ export default class WaveSpawner {
       }
     }
 
+    // Collect destroyed silo angles so random targets avoid them
+    const destroyedAngles = this.silos
+      .filter(s => s.state === SILO_STATE.DESTROYED)
+      .map(s => s.angle);
+
     const target = generateTargetPoint(
       this.planetX, this.planetY, this.planetRadius,
-      targetAngle, targetsSilo && targetAngle !== null
+      targetAngle, targetsSilo && targetAngle !== null,
+      destroyedAngles
     );
 
     const spawn = generateSpawnPoint(
@@ -120,6 +127,18 @@ export default class WaveSpawner {
         target.x, target.y,
         speed,
         wd
+      );
+    }
+
+    // Sine missile check
+    const isSine = Math.random() < (wd.sineChance || 0);
+
+    if (isSine) {
+      return new SineMissile(
+        this.scene,
+        spawn.x, spawn.y,
+        target.x, target.y,
+        speed
       );
     }
 

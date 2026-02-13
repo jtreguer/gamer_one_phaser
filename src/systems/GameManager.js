@@ -181,6 +181,14 @@ class GameManager {
       mirvMaxWarheads = 3;
     }
 
+    let sineChance = 0;
+    if (waveNum >= CONFIG.SINE_START_WAVE) {
+      sineChance = Math.min(
+        CONFIG.SINE_BASE_CHANCE + (waveNum - CONFIG.SINE_START_WAVE) * CONFIG.SINE_CHANCE_PER_WAVE,
+        CONFIG.SINE_CHANCE_CAP
+      );
+    }
+
     const burstCount = Math.min(2 + Math.floor(waveNum / 3), 7);
 
     return {
@@ -192,6 +200,7 @@ class GameManager {
       mirvMinWarheads: CONFIG.MIRV_MIN_WARHEADS,
       mirvMaxWarheads,
       burstCount,
+      sineChance,
       siloTargetRatio: CONFIG.SILO_TARGET_RATIO,
     };
   }

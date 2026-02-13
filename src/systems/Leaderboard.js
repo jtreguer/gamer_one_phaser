@@ -6,8 +6,9 @@ class Leaderboard {
     this.entries = this._load();
   }
 
-  addEntry(score, wave, accuracy) {
+  addEntry(name, score, wave, accuracy) {
     const entry = {
+      name: name || '---',
       score,
       wave,
       accuracy: Math.round(accuracy * 100),
@@ -32,7 +33,13 @@ class Leaderboard {
   _load() {
     try {
       const data = localStorage.getItem(STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
+      if (!data) return [];
+      const entries = JSON.parse(data);
+      // Backfill name for legacy entries
+      for (const e of entries) {
+        if (!e.name) e.name = '---';
+      }
+      return entries;
     } catch {
       return [];
     }

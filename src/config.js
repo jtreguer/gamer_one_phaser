@@ -23,6 +23,7 @@ export const CONFIG = {
     ENEMY_TRAIL_FADE: '#601010',
     MIRV: '#ffaa20',
     MIRV_WARHEAD: '#ff6020',
+    SINE: '#aa40ff',
     CROSSHAIR: '#ffffff',
     CROSSHAIR_REJECT: '#ff4040',
     UI_TEXT: '#e0e0e0',
@@ -47,6 +48,7 @@ export const CONFIG = {
     ENEMY_TRAIL_FADE: 0x601010,
     MIRV: 0xffaa20,
     MIRV_WARHEAD: 0xff6020,
+    SINE: 0xaa40ff,
     CROSSHAIR: 0xffffff,
     CROSSHAIR_REJECT: 0xff4040,
     SCORE_POPUP: 0xffd040,
@@ -99,10 +101,19 @@ export const CONFIG = {
   MIRV_MAX_WARHEADS: 4,
   MIRV_WARHEAD_SPREAD: 0.52,    // ~30 degrees in radians
 
+  // Sine Missile
+  SINE_START_WAVE: 3,
+  SINE_BASE_CHANCE: 0.10,
+  SINE_CHANCE_PER_WAVE: 0.02,
+  SINE_CHANCE_CAP: 0.35,
+  SINE_AMPLITUDE: 35,              // pixels of perpendicular oscillation
+  SINE_FREQUENCY: 3,               // full sine cycles over flight path
+
   // Scoring
   POINTS_ENEMY_KILL: 100,
   POINTS_MIRV_PRESPLIT: 250,
   POINTS_WARHEAD_KILL: 75,
+  POINTS_SINE_KILL: 150,
   MULTI_KILL_BONUS: 150,           // bonus per kill when 2+ destroyed by one blast
   WAVE_CLEAR_BONUS: 500,
   SILO_SURVIVAL_BONUS: 200,

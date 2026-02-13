@@ -1,5 +1,5 @@
 import { CONFIG } from '../config.js';
-import { lineIntersectsCircle, randomBetween } from '../utils/math.js';
+import { lineIntersectsCircle, randomBetween, angleDiff } from '../utils/math.js';
 
 export function generateSpawnPoint(targetX, targetY, planetX, planetY, planetRadius) {
   const margin = CONFIG.SPAWN_MARGIN;
@@ -58,12 +58,28 @@ export function generateSpawnPoint(targetX, targetY, planetX, planetY, planetRad
   return best;
 }
 
-export function generateTargetPoint(planetX, planetY, planetRadius, siloAngle, isSiloTarget) {
+export function generateTargetPoint(planetX, planetY, planetRadius, siloAngle, isSiloTarget, destroyedAngles = []) {
   let angle;
   if (isSiloTarget && siloAngle !== null) {
     angle = siloAngle;
   } else {
+    // Generate random angle, avoiding destroyed silo positions
+    const avoidRadius = 0.3; // ~17 degrees
     angle = Math.random() * Math.PI * 2;
+
+    if (destroyedAngles.length > 0) {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        let tooClose = false;
+        for (const dAngle of destroyedAngles) {
+          if (angleDiff(angle, dAngle) < avoidRadius) {
+            tooClose = true;
+            break;
+          }
+        }
+        if (!tooClose) break;
+        angle = Math.random() * Math.PI * 2;
+      }
+    }
   }
 
   return {

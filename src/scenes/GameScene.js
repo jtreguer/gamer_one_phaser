@@ -210,6 +210,8 @@ export default class GameScene extends Phaser.Scene {
           points = CONFIG.POINTS_MIRV_PRESPLIT;
         } else if (enemy.isWarhead) {
           points = CONFIG.POINTS_WARHEAD_KILL;
+        } else if (enemy.isSine) {
+          points = CONFIG.POINTS_SINE_KILL;
         } else {
           points = CONFIG.POINTS_ENEMY_KILL;
         }

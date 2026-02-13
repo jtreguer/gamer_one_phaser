@@ -14,6 +14,7 @@ export default class EnemyMissile {
     this.destroyed = false;
     this.isMirv = isMirv;
     this.isWarhead = false; // set true for MIRV warheads
+    this.isSine = false;   // set true for sinusoidal missiles
 
     const dx = targetX - startX;
     const dy = targetY - startY;
@@ -153,6 +154,7 @@ export default class EnemyMissile {
 
     const baseColor = this.isMirv ? CONFIG.TINT.MIRV :
                       this.isWarhead ? CONFIG.TINT.MIRV_WARHEAD :
+                      this.isSine ? CONFIG.TINT.SINE :
                       CONFIG.TINT.ENEMY;
 
     for (let i = 1; i < points.length; i++) {
@@ -170,6 +172,7 @@ export default class EnemyMissile {
   _showDestroyEffect() {
     const color = this.isMirv ? CONFIG.TINT.MIRV :
                   this.isWarhead ? CONFIG.TINT.MIRV_WARHEAD :
+                  this.isSine ? CONFIG.TINT.SINE :
                   CONFIG.TINT.ENEMY;
     const explosionGfx = this.scene.add.graphics().setDepth(7);
     explosionGfx.fillStyle(0xffffff, 0.9);

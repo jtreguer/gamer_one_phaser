@@ -30,7 +30,7 @@ export default class BootScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     const barWidth = 30;
-    this.barText = this.add.text(cx, cy + 10, '[' + '.'.repeat(barWidth) + ']', {
+    this.barText = this.add.text(cx, cy + 10, '[' + '\u00B7'.repeat(barWidth) + ']', {
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: '16px',
       color: CONFIG.COLORS.SILO_READY,
@@ -43,8 +43,8 @@ export default class BootScene extends Phaser.Scene {
       repeat: barWidth - 1,
       callback: () => {
         progress++;
-        const filled = '='.repeat(progress);
-        const empty = '.'.repeat(barWidth - progress);
+        const filled = '>'.repeat(progress);
+        const empty = '\u00B7'.repeat(barWidth - progress);
         this.barText.setText('[' + filled + empty + ']');
 
         if (progress >= barWidth) {
