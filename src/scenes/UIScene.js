@@ -41,6 +41,29 @@ export default class UIScene extends Phaser.Scene {
     this.vignette = this.add.image(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, '__vignette')
       .setDepth(99).setAlpha(0);
 
+    // Pause overlay (hidden by default)
+    this.pauseBg = this.add.rectangle(
+      CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2,
+      CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT,
+      0x000000, 0.5
+    ).setDepth(200).setVisible(false);
+
+    this.pauseText = this.add.text(
+      CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 20,
+      'PAUSED', style('32px', CONFIG.COLORS.PLANET_ATMOSPHERE)
+    ).setOrigin(0.5).setDepth(201).setVisible(false);
+
+    this.pauseHint = this.add.text(
+      CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 + 20,
+      'Press P to resume', style('14px')
+    ).setOrigin(0.5).setDepth(201).setVisible(false);
+
+    this.paused = false;
+
+    // P key for resume (UIScene stays active while GameScene is paused)
+    this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
+    this.pauseKey.on('down', this._onResumePressed, this);
+
     // Listen for events forwarded from GameScene (via UIScene.events.emit)
     this.events.on(EVENTS.SCORE_CHANGED, this._onScoreChanged, this);
     this.events.on(EVENTS.WAVE_STARTED, this._onWaveStarted, this);
@@ -48,6 +71,7 @@ export default class UIScene extends Phaser.Scene {
     this.events.on(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
     this.events.on(EVENTS.GAME_OVER, this._onGameOver, this);
     this.events.on(EVENTS.MULTI_KILL, this._onMultiKill, this);
+    this.events.on('game_paused', this._onGamePaused, this);
 
     // Register shutdown for cleanup on scene stop/restart
     this.events.once('shutdown', this.shutdown, this);
@@ -115,6 +139,22 @@ export default class UIScene extends Phaser.Scene {
     // Extra HUD feedback already handled in GameScene
   }
 
+  _onGamePaused() {
+    this.paused = true;
+    this.pauseBg.setVisible(true);
+    this.pauseText.setVisible(true);
+    this.pauseHint.setVisible(true);
+  }
+
+  _onResumePressed() {
+    if (!this.paused) return;
+    this.paused = false;
+    this.pauseBg.setVisible(false);
+    this.pauseText.setVisible(false);
+    this.pauseHint.setVisible(false);
+    this.scene.resume('GameScene');
+  }
+
   _onGameOver() {
     this.announceText.setText('ALL SILOS DESTROYED');
     this.announceText.setAlpha(1).setColor(CONFIG.COLORS.ENEMY);
@@ -159,5 +199,8 @@ export default class UIScene extends Phaser.Scene {
     this.events.off(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
     this.events.off(EVENTS.GAME_OVER, this._onGameOver, this);
     this.events.off(EVENTS.MULTI_KILL, this._onMultiKill, this);
+    this.events.off('game_paused', this._onGamePaused, this);
+    this.pauseKey.off('down', this._onResumePressed, this);
+    this.input.keyboard.removeKey(Phaser.Input.Keyboard.KeyCodes.P);
   }
 }
