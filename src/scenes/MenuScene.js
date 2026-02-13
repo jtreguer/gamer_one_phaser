@@ -9,7 +9,6 @@ export default class MenuScene extends Phaser.Scene {
 
   create() {
     const cx = CONFIG.GAME_WIDTH / 2;
-    const cy = CONFIG.GAME_HEIGHT / 2;
     const style = (size, color) => ({
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: size,
@@ -18,70 +17,85 @@ export default class MenuScene extends Phaser.Scene {
     });
 
     // Starfield background
-    const gfx = this.add.graphics();
+    const bg = this.add.graphics();
     for (let i = 0; i < 60; i++) {
       const x = Math.random() * CONFIG.GAME_WIDTH;
       const y = Math.random() * CONFIG.GAME_HEIGHT;
       const alpha = 0.3 + Math.random() * 0.7;
-      gfx.fillStyle(0xffffff, alpha);
-      gfx.fillCircle(x, y, Math.random() < 0.1 ? 1.5 : 0.8);
+      bg.fillStyle(0xffffff, alpha);
+      bg.fillCircle(x, y, Math.random() < 0.1 ? 1.5 : 0.8);
     }
 
-    // Planet preview
-    const planet = this.add.graphics();
-    planet.fillStyle(CONFIG.TINT.PLANET_BODY, 1);
-    planet.fillCircle(cx, cy - 30, 50);
-    planet.lineStyle(2, CONFIG.TINT.PLANET_ATMOSPHERE, 0.4);
-    planet.strokeCircle(cx, cy - 30, 55);
-
     // Title
-    this.add.text(cx, 80, 'PLANET DEFENSE', style('32px', CONFIG.COLORS.PLANET_ATMOSPHERE)).setOrigin(0.5);
-    this.add.text(cx, 115, 'ORBITAL COMMAND', style('14px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
+    this.add.text(cx, 55, 'PLANET DEFENSE', style('32px', CONFIG.COLORS.PLANET_ATMOSPHERE)).setOrigin(0.5);
+    this.add.text(cx, 90, 'ORBITAL COMMAND', style('14px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
 
     // High score
     if (gameManager.highScore > 0) {
-      this.add.text(cx, 430, `HIGH SCORE: ${gameManager.highScore}`, style('14px', CONFIG.COLORS.SCORE_POPUP)).setOrigin(0.5);
+      this.add.text(cx, 128, `HIGH SCORE: ${gameManager.highScore}`, style('14px', CONFIG.COLORS.SCORE_POPUP)).setOrigin(0.5);
     }
 
-    // Controls
-    this.add.text(cx, 440, 'CLICK TO LAUNCH INTERCEPTORS', style('12px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
-    this.add.text(cx, 458, 'DEFEND YOUR PLANET FROM INCOMING MISSILES', style('12px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
-    this.add.text(cx, 476, 'P — PAUSE', style('12px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
-
-    // Difficulty selector
-    const difficulties = [
-      { key: 'pedestrian', label: 'Pedestrian' },
-      { key: 'fort_alamo', label: 'Fort Alamo' },
-      { key: 'atomic', label: 'Atomic!' },
-    ];
+    // Difficulty spheres — center of the screen
     this.selectedDifficulty = 'fort_alamo';
-    const diffButtons = [];
+    const sphereRadius = 38;
+    const sphereY = 280;
+    const spacing = 190;
+    const baseX = cx - spacing;
 
-    const diffY = 510;
-    this.add.text(cx, diffY - 20, 'DIFFICULTY', style('10px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
+    const diffs = [
+      { key: 'pedestrian', label: 'Pedestrian', color: 0x88cc88, colorLight: 0xb0eeb0, colorDark: 0x558855, colorStr: '#88cc88' },
+      { key: 'fort_alamo', label: 'Fort Alamo', color: 0xe89030, colorLight: 0xffb860, colorDark: 0xa06020, colorStr: '#e89030' },
+      { key: 'atomic', label: 'Atomic!', color: 0xcc2020, colorLight: 0xff4848, colorDark: 0x881010, colorStr: '#cc2020' },
+    ];
 
-    const spacing = 140;
-    const startX = cx - spacing;
+    this.spheres = diffs.map((d, i) => {
+      const sx = baseX + i * spacing;
 
-    difficulties.forEach((d, i) => {
-      const bx = startX + i * spacing;
-      const btn = this.add.text(bx, diffY, d.label, style('14px',
-        d.key === this.selectedDifficulty ? CONFIG.COLORS.PLANET_ATMOSPHERE : CONFIG.COLORS.UI_TEXT
-      )).setOrigin(0.5).setInteractive({ useHandCursor: true });
+      // Sphere graphics
+      const gfx = this.add.graphics();
+      this._drawSphere(gfx, 0, 0, sphereRadius, d);
 
-      btn.on('pointerover', () => { if (d.key !== this.selectedDifficulty) btn.setColor(CONFIG.COLORS.WHITE); });
-      btn.on('pointerout', () => { btn.setColor(d.key === this.selectedDifficulty ? CONFIG.COLORS.PLANET_ATMOSPHERE : CONFIG.COLORS.UI_TEXT); });
-      btn.on('pointerdown', () => {
-        this.selectedDifficulty = d.key;
-        diffButtons.forEach((b, j) => {
-          b.setColor(difficulties[j].key === d.key ? CONFIG.COLORS.PLANET_ATMOSPHERE : CONFIG.COLORS.UI_TEXT);
-        });
+      // Label below sphere
+      const lbl = this.add.text(0, sphereRadius + 16, d.label, style('13px', d.colorStr)).setOrigin(0.5);
+
+      // Interactive container
+      const container = this.add.container(sx, sphereY, [gfx, lbl]);
+      container.setInteractive(
+        new Phaser.Geom.Circle(0, 0, sphereRadius + 8),
+        Phaser.Geom.Circle.Contains
+      );
+      container.input.cursor = 'pointer';
+
+      const entry = { ...d, container, gfx, lbl };
+
+      // Selected sphere starts enlarged
+      if (d.key === this.selectedDifficulty) {
+        container.setScale(1.3);
+      }
+
+      container.on('pointerover', () => {
+        if (d.key !== this.selectedDifficulty) {
+          this.tweens.add({ targets: container, scale: 1.15, duration: 150, ease: 'Sine.easeOut' });
+        }
       });
-      diffButtons.push(btn);
+
+      container.on('pointerout', () => {
+        if (d.key !== this.selectedDifficulty) {
+          this.tweens.add({ targets: container, scale: 1.0, duration: 150, ease: 'Sine.easeOut' });
+        }
+      });
+
+      container.on('pointerdown', () => this._selectDifficulty(entry));
+
+      return entry;
     });
 
+    // Controls (condensed)
+    this.add.text(cx, 435, 'CLICK TO LAUNCH INTERCEPTORS', style('11px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
+    this.add.text(cx, 455, 'DEFEND YOUR PLANET  \u2022  P \u2014 PAUSE', style('11px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
+
     // Blinking start button
-    this.prompt = this.add.text(cx, 555, '>>> CLICK TO START <<<', style('18px', CONFIG.COLORS.MIRV))
+    this.prompt = this.add.text(cx, 535, '>>> CLICK TO START <<<', style('18px', CONFIG.COLORS.MIRV))
       .setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.tweens.add({
       targets: this.prompt,
@@ -99,6 +113,36 @@ export default class MenuScene extends Phaser.Scene {
       gameManager.startGame();
       this.scene.start('GameScene');
       this.scene.launch('UIScene');
+    });
+  }
+
+  _drawSphere(gfx, x, y, r, d) {
+    gfx.clear();
+    // Outer glow
+    gfx.fillStyle(d.color, 0.12);
+    gfx.fillCircle(x, y, r + 12);
+    // Main body
+    gfx.fillStyle(d.color, 0.8);
+    gfx.fillCircle(x, y, r);
+    // Rim
+    gfx.lineStyle(1.5, d.colorDark, 0.5);
+    gfx.strokeCircle(x, y, r);
+    // Specular highlight (upper-left)
+    gfx.fillStyle(d.colorLight, 0.3);
+    gfx.fillCircle(x - r * 0.22, y - r * 0.22, r * 0.45);
+  }
+
+  _selectDifficulty(selected) {
+    if (selected.key === this.selectedDifficulty) return;
+    const prevKey = this.selectedDifficulty;
+    this.selectedDifficulty = selected.key;
+
+    this.spheres.forEach((s) => {
+      if (s.key === selected.key) {
+        this.tweens.add({ targets: s.container, scale: 1.3, duration: 250, ease: 'Back.easeOut' });
+      } else if (s.key === prevKey) {
+        this.tweens.add({ targets: s.container, scale: 1.0, duration: 200, ease: 'Sine.easeOut' });
+      }
     });
   }
 }
