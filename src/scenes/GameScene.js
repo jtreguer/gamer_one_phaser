@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CONFIG } from '../config.js';
+import { CONFIG, TEXT_RES } from '../config.js';
 import { EVENTS, SILO_STATE, GAME_STATE } from '../utils/constants.js';
 import gameManager from '../systems/GameManager.js';
 import SoundManager from '../systems/SoundManager.js';
@@ -60,6 +60,12 @@ export default class GameScene extends Phaser.Scene {
 
     // Input
     this.input.on('pointerdown', this._onPointerDown, this);
+
+    // Register shutdown for cleanup on scene stop/restart
+    this.events.once('shutdown', this.shutdown, this);
+
+    // Hide cursor (custom crosshair replaces it)
+    document.body.classList.add('hide-cursor');
 
     // Start ambient audio
     this.soundManager.startAmbient();
@@ -220,11 +226,20 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    if (killCount >= 3) {
-      // Multi-kill feedback
-      this.cameras.main.shake(200, 0.01);
-      this.soundManager.playMultiKill();
-      this._showMultiKillText(blast.x, blast.y, killCount);
+    // Multi-kill bonus: award extra points when 2+ enemies destroyed by one blast
+    if (killCount >= 2) {
+      const multiBonus = killCount * CONFIG.MULTI_KILL_BONUS;
+      gameManager.addScore(multiBonus);
+      this.scene.get('UIScene')?.events.emit(EVENTS.SCORE_CHANGED, gameManager.score);
+
+      if (killCount >= 3) {
+        this.cameras.main.shake(200, 0.01);
+        this.soundManager.playMultiKill();
+      } else {
+        this.cameras.main.shake(120, 0.006);
+      }
+
+      this._showMultiKillText(blast.x, blast.y, killCount, multiBonus);
       this.scene.get('UIScene')?.events.emit(EVENTS.MULTI_KILL, killCount);
     } else if (killCount > 0) {
       this.cameras.main.shake(80, 0.004);
@@ -352,11 +367,7 @@ export default class GameScene extends Phaser.Scene {
       });
     });
 
-    // Listen for upgrade scene completion
-    this.scene.get('UpgradeScene')?.events.once(EVENTS.SHOP_CLOSED, () => {
-      this._onShopClosed();
-    });
-    // Also listen on our own events in case UpgradeScene isn't loaded yet
+    // Listen for upgrade scene completion (UpgradeScene emits on GameScene.events)
     this.events.once(EVENTS.SHOP_CLOSED, () => {
       this._onShopClosed();
     });
@@ -387,6 +398,7 @@ export default class GameScene extends Phaser.Scene {
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: '14px',
       color: CONFIG.COLORS.SCORE_POPUP,
+      resolution: TEXT_RES,
     }).setOrigin(0.5).setDepth(60);
 
     this.tweens.add({
@@ -399,12 +411,13 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  _showMultiKillText(x, y, count) {
-    const label = count >= 5 ? 'MEGA KILL!' : count >= 4 ? 'ULTRA KILL!' : 'MULTI KILL!';
-    const text = this.add.text(x, y - 30, label, {
+  _showMultiKillText(x, y, count, bonus) {
+    const label = count >= 5 ? 'MEGA KILL!' : count >= 4 ? 'ULTRA KILL!' : count >= 3 ? 'TRIPLE KILL!' : 'DOUBLE KILL!';
+    const text = this.add.text(x, y - 30, `${label} +${bonus}`, {
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: '18px',
       color: CONFIG.COLORS.WHITE,
+      resolution: TEXT_RES,
     }).setOrigin(0.5).setDepth(61);
 
     this.tweens.add({
@@ -433,35 +446,78 @@ export default class GameScene extends Phaser.Scene {
   }
 
   _showImpactEffect(x, y) {
-    const flash = this.add.graphics().setDepth(55);
-    flash.fillStyle(CONFIG.TINT.ENEMY, 0.3);
-    flash.fillCircle(x, y, 8);
-
-    this.tweens.add({
-      targets: flash,
-      alpha: 0,
-      duration: 500,
-      onComplete: () => flash.destroy(),
-    });
+    this._showMushroomCloud(x, y, 0.7);
   }
 
   _showSiloDestructionEffect(x, y) {
-    const flash = this.add.graphics().setDepth(55);
-    // Large explosion
-    flash.fillStyle(CONFIG.TINT.ENEMY, 0.8);
-    flash.fillCircle(x, y, 20);
-    flash.fillStyle(CONFIG.TINT.MIRV, 0.6);
-    flash.fillCircle(x, y, 12);
-    flash.fillStyle(0xffffff, 0.9);
-    flash.fillCircle(x, y, 5);
+    this._showMushroomCloud(x, y, 1.3);
+  }
 
+  _showMushroomCloud(x, y, scale) {
+    // Direction outward from planet center
+    const dx = x - this.planetX;
+    const dy = y - this.planetY;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
+
+    const rise = 30 * scale;
+    const color = CONFIG.TINT.ENEMY;
+
+    // 1. Ground flash
+    const flash = this.add.circle(x, y, 5 * scale, 0xffffff, 0.9).setDepth(55);
     this.tweens.add({
-      targets: flash,
-      alpha: 0,
-      scaleX: 2,
-      scaleY: 2,
-      duration: 600,
+      targets: flash, scale: 2.5, alpha: 0, duration: 200,
       onComplete: () => flash.destroy(),
+    });
+
+    // 2. Base smoke ring (expands at impact point)
+    const base = this.add.circle(x + nx * 3, y + ny * 3, 5 * scale, color, 0.5).setDepth(54);
+    this.tweens.add({
+      targets: base, scaleX: 2.5, scaleY: 1.5, alpha: 0,
+      duration: 800, ease: 'Sine.easeOut',
+      onComplete: () => base.destroy(),
+    });
+
+    // 3. Rising stem particles
+    for (let i = 0; i < 3; i++) {
+      const d = (8 + i * 8) * scale;
+      const sz = (3 - i * 0.5) * scale;
+      const stemPart = this.add.circle(x, y, sz, color, 0.4).setDepth(54);
+      this.tweens.add({
+        targets: stemPart,
+        x: x + nx * d, y: y + ny * d, alpha: 0,
+        duration: 600, delay: i * 50, ease: 'Power2',
+        onComplete: () => stemPart.destroy(),
+      });
+    }
+
+    // 4. Mushroom cap — rises and expands
+    const capX = x + nx * rise;
+    const capY = y + ny * rise;
+    const cap = this.add.circle(x + nx * 5, y + ny * 5, 3 * scale, color, 0.7).setDepth(55);
+    this.tweens.add({
+      targets: cap,
+      x: capX, y: capY, scaleX: 3.5, scaleY: 2.5,
+      duration: 500, ease: 'Power2',
+    });
+    this.tweens.add({
+      targets: cap, alpha: 0,
+      duration: 400, delay: 400,
+      onComplete: () => cap.destroy(),
+    });
+
+    // 5. Bright core inside cap
+    const core = this.add.circle(x + nx * 5, y + ny * 5, 2 * scale, 0xffaa40, 0.5).setDepth(56);
+    this.tweens.add({
+      targets: core,
+      x: capX, y: capY, scaleX: 2, scaleY: 1.5,
+      duration: 500, ease: 'Power2',
+    });
+    this.tweens.add({
+      targets: core, alpha: 0,
+      duration: 400, delay: 350,
+      onComplete: () => core.destroy(),
     });
   }
 
@@ -472,6 +528,9 @@ export default class GameScene extends Phaser.Scene {
   // --- Cleanup ---
 
   shutdown() {
+    // Restore cursor
+    document.body.classList.remove('hide-cursor');
+
     this.soundManager.stopAmbient();
     this.soundManager.destroy();
     this.waveSpawner.destroy();

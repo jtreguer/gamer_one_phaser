@@ -8,7 +8,7 @@ import UpgradeScene from './scenes/UpgradeScene.js';
 import GameOverScene from './scenes/GameOverScene.js';
 
 const config = {
-  type: Phaser.CANVAS,
+  type: Phaser.AUTO,
   width: CONFIG.GAME_WIDTH,
   height: CONFIG.GAME_HEIGHT,
   backgroundColor: CONFIG.COLORS.SPACE_BG,

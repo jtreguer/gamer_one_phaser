@@ -7,8 +7,9 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='40' fill='%231a4a5a' stroke='%233af0e8' stroke-width='3'/></svg>">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; cursor: none; }
-    canvas { display: block; cursor: none; }
+    body { background: #000; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    canvas { display: block; }
+    body.hide-cursor, body.hide-cursor canvas, body.hide-cursor * { cursor: none !important; }
   </style>
 </head>
 <body>

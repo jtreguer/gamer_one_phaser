@@ -77,7 +77,8 @@ export default class EnemyMissile {
   kill() {
     this.alive = false;
     this.destroyed = true;
-    this._startTrailFade();
+    this._showDestroyEffect();
+    this._startQuickFade();
   }
 
   _draw() {
@@ -85,22 +86,65 @@ export default class EnemyMissile {
     g.clear();
     this._drawTrail(g, 1);
 
-    // Head point
+    const angle = Math.atan2(this.dirY, this.dirX);
+
     if (this.isMirv) {
-      // Pulsing MIRV head
+      // Pulsing MIRV rocket — larger, with glow
       const pulse = Math.sin(this.mirvPulseTimer * 6) * 0.3 + 0.7;
-      const headSize = 3 + pulse;
-      g.fillStyle(CONFIG.TINT.MIRV, 1);
-      g.fillCircle(this.x, this.y, headSize);
-      g.fillStyle(CONFIG.TINT.MIRV, 0.3);
-      g.fillCircle(this.x, this.y, headSize + 3);
+      const len = 7 + pulse;
+      this._drawRocket(g, this.x, this.y, angle, len, 4, CONFIG.TINT.MIRV);
+      // Glow
+      g.fillStyle(CONFIG.TINT.MIRV, 0.2);
+      g.fillCircle(this.x, this.y, len + 2);
     } else if (this.isWarhead) {
-      g.fillStyle(CONFIG.TINT.MIRV_WARHEAD, 1);
-      g.fillCircle(this.x, this.y, 2);
+      this._drawRocket(g, this.x, this.y, angle, 5, 2.5, CONFIG.TINT.MIRV_WARHEAD);
     } else {
-      g.fillStyle(CONFIG.TINT.ENEMY, 1);
-      g.fillCircle(this.x, this.y, 2.5);
+      this._drawRocket(g, this.x, this.y, angle, 6, 3, CONFIG.TINT.ENEMY);
     }
+  }
+
+  _drawRocket(g, x, y, angle, length, width, color) {
+    // Nose tip
+    const tipX = x + Math.cos(angle) * length;
+    const tipY = y + Math.sin(angle) * length;
+
+    // Body shoulders (perpendicular to travel direction)
+    const perpX = Math.cos(angle + Math.PI / 2);
+    const perpY = Math.sin(angle + Math.PI / 2);
+    const shoulderX = x + Math.cos(angle) * length * 0.2;
+    const shoulderY = y + Math.sin(angle) * length * 0.2;
+    const lsX = shoulderX + perpX * width * 0.6;
+    const lsY = shoulderY + perpY * width * 0.6;
+    const rsX = shoulderX - perpX * width * 0.6;
+    const rsY = shoulderY - perpY * width * 0.6;
+
+    // Tail center
+    const tailX = x - Math.cos(angle) * length * 0.4;
+    const tailY = y - Math.sin(angle) * length * 0.4;
+
+    // Fins (wider than body, at the tail)
+    const finX = x - Math.cos(angle) * length * 0.3;
+    const finY = y - Math.sin(angle) * length * 0.3;
+    const lfX = finX + perpX * width;
+    const lfY = finY + perpY * width;
+    const rfX = finX - perpX * width;
+    const rfY = finY - perpY * width;
+
+    // Draw body: nose → left shoulder → left fin → tail → right fin → right shoulder → nose
+    g.fillStyle(color, 1);
+    g.beginPath();
+    g.moveTo(tipX, tipY);
+    g.lineTo(lsX, lsY);
+    g.lineTo(lfX, lfY);
+    g.lineTo(tailX, tailY);
+    g.lineTo(rfX, rfY);
+    g.lineTo(rsX, rsY);
+    g.closePath();
+    g.fillPath();
+
+    // Bright nose highlight
+    g.fillStyle(0xffffff, 0.5);
+    g.fillCircle(tipX, tipY, 1);
   }
 
   _drawTrail(g, alpha) {
@@ -121,6 +165,38 @@ export default class EnemyMissile {
       g.lineTo(points[i].x, points[i].y);
       g.strokePath();
     }
+  }
+
+  _showDestroyEffect() {
+    const color = this.isMirv ? CONFIG.TINT.MIRV :
+                  this.isWarhead ? CONFIG.TINT.MIRV_WARHEAD :
+                  CONFIG.TINT.ENEMY;
+    const explosionGfx = this.scene.add.graphics().setDepth(7);
+    explosionGfx.fillStyle(0xffffff, 0.9);
+    explosionGfx.fillCircle(this.x, this.y, 4);
+    explosionGfx.fillStyle(color, 0.7);
+    explosionGfx.fillCircle(this.x, this.y, 8);
+
+    this.scene.tweens.add({
+      targets: explosionGfx,
+      alpha: 0,
+      scaleX: 2,
+      scaleY: 2,
+      duration: 250,
+      ease: 'Power2',
+      onComplete: () => explosionGfx.destroy(),
+    });
+  }
+
+  _startQuickFade() {
+    this.scene.tweens.add({
+      targets: this.graphics,
+      alpha: 0,
+      duration: 400,
+      onComplete: () => {
+        this.destroy();
+      },
+    });
   }
 
   _startTrailFade() {

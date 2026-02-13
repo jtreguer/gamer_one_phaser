@@ -1,3 +1,6 @@
+// Text resolution multiplier for crisp rendering on HiDPI displays
+export const TEXT_RES = Math.min(window.devicePixelRatio || 1, 3);
+
 export const CONFIG = {
   // Display
   GAME_WIDTH: 800,
@@ -69,19 +72,19 @@ export const CONFIG = {
   SILO_RELOAD_TIME: 1.5,         // seconds base
 
   // Enemy Missiles
-  ENEMY_SPEED_MIN_BASE: 80,
-  ENEMY_SPEED_MAX_BASE: 120,
-  ENEMY_SPEED_ESCALATION: 8,
-  ENEMY_SPEED_MAX_ESCALATION: 12,
+  ENEMY_SPEED_MIN_BASE: 40,
+  ENEMY_SPEED_MAX_BASE: 100,
+  ENEMY_SPEED_ESCALATION: 6,
+  ENEMY_SPEED_MAX_ESCALATION: 14,
   ENEMY_SPEED_CAP: 300,
   INITIAL_ENEMY_COUNT: 6,
   ENEMY_COUNT_ESCALATION: 2,
   ENEMY_COUNT_CAP: 60,
   SPAWN_MARGIN: 20,
-  TRAIL_LIFETIME: 5,             // seconds
+  TRAIL_LIFETIME: 1.5,            // seconds (fade after detonation/death)
 
   // Trail rendering
-  TRAIL_MAX_POINTS: 100,
+  TRAIL_MAX_POINTS: 200,
   TRAIL_WIDTH: 2,
   ENEMY_TRAIL_WIDTH: 2.5,
 
@@ -100,6 +103,7 @@ export const CONFIG = {
   POINTS_ENEMY_KILL: 100,
   POINTS_MIRV_PRESPLIT: 250,
   POINTS_WARHEAD_KILL: 75,
+  MULTI_KILL_BONUS: 150,           // bonus per kill when 2+ destroyed by one blast
   WAVE_CLEAR_BONUS: 500,
   SILO_SURVIVAL_BONUS: 200,
   ACCURACY_BONUS_THRESHOLD: 0.8,

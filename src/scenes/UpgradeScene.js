@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CONFIG } from '../config.js';
+import { CONFIG, TEXT_RES } from '../config.js';
 import { EVENTS } from '../utils/constants.js';
 import gameManager from '../systems/GameManager.js';
 
@@ -15,11 +15,15 @@ export default class UpgradeScene extends Phaser.Scene {
   }
 
   create() {
+    // Show cursor for the upgrade shop UI
+    document.body.classList.remove('hide-cursor');
+
     const cx = CONFIG.GAME_WIDTH / 2;
     const style = (size, color) => ({
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: size,
       color: color || CONFIG.COLORS.UI_TEXT,
+      resolution: TEXT_RES,
     });
 
     // Semi-transparent overlay
@@ -100,7 +104,7 @@ export default class UpgradeScene extends Phaser.Scene {
 
     // Name
     this.add.text(cx, y + 60, upgrade.name, {
-      ...style('11px', textColor),
+      ...style('14px', textColor),
       align: 'center',
       wordWrap: { width: width - 10 },
     }).setOrigin(0.5);
@@ -108,46 +112,59 @@ export default class UpgradeScene extends Phaser.Scene {
     // Level
     if (upgradeId !== 'silo_repair') {
       const levelStr = maxed ? 'MAX' : `Level ${level}/${upgrade.maxLevel}`;
-      this.add.text(cx, y + 85, levelStr, style('10px', dimmed ? '#444444' : CONFIG.COLORS.SILO_READY)).setOrigin(0.5);
+      this.add.text(cx, y + 85, levelStr, style('13px', dimmed ? '#444444' : CONFIG.COLORS.SILO_READY)).setOrigin(0.5);
     } else {
       const repairStr = siloRepairUnavailable ? 'ALL INTACT' : `${this.siloCount}/${this.maxSilos} SILOS`;
-      this.add.text(cx, y + 85, repairStr, style('10px', dimmed ? '#444444' : CONFIG.COLORS.MIRV)).setOrigin(0.5);
+      this.add.text(cx, y + 85, repairStr, style('13px', dimmed ? '#444444' : CONFIG.COLORS.MIRV)).setOrigin(0.5);
     }
 
     // Effect description
     let effectStr = '';
     if (upgradeId === 'interceptor_speed') {
-      effectStr = `Speed: ${gameManager.getEffectiveInterceptorSpeed()} px/s`;
+      effectStr = `Speed: ${gameManager.getEffectiveInterceptorSpeed()}`;
     } else if (upgradeId === 'blast_radius') {
-      effectStr = `Radius: ${gameManager.getEffectiveBlastRadius()} px`;
+      effectStr = `Radius: ${gameManager.getEffectiveBlastRadius()}`;
     } else if (upgradeId === 'reload_speed') {
       effectStr = `Reload: ${gameManager.getEffectiveReloadTime().toFixed(2)}s`;
     } else {
       effectStr = 'Restore 1 silo';
     }
-    this.add.text(cx, y + 110, effectStr, style('9px', '#888888')).setOrigin(0.5);
+    this.add.text(cx, y + 112, effectStr, style('12px', '#aaaaaa')).setOrigin(0.5);
 
     // Cost
     const costStr = maxed ? '---' : siloRepairUnavailable ? '---' : `${cost}`;
-    const costText = this.add.text(cx, y + 145, costStr, style('16px', canAfford && !dimmed ? CONFIG.COLORS.SCORE_POPUP : '#666666')).setOrigin(0.5);
+    this.add.text(cx, y + 145, costStr, style('16px', canAfford && !dimmed ? CONFIG.COLORS.SCORE_POPUP : '#666666')).setOrigin(0.5);
 
-    // Buy button
+    // Make the entire card clickable via an invisible hit zone
     if (!dimmed) {
-      const btn = this.add.text(cx, y + 175, '[ BUY ]', style('12px', CONFIG.COLORS.SILO_READY))
-        .setOrigin(0.5).setInteractive({ useHandCursor: true });
+      const hitZone = this.add.zone(x + width / 2, y + height / 2, width, height)
+        .setInteractive({ useHandCursor: true });
 
-      btn.on('pointerover', () => btn.setColor(CONFIG.COLORS.WHITE));
-      btn.on('pointerout', () => btn.setColor(CONFIG.COLORS.SILO_READY));
-      btn.on('pointerdown', () => {
+      // Hover highlight
+      const hoverGfx = this.add.graphics();
+      hoverGfx.setAlpha(0);
+
+      hitZone.on('pointerover', () => {
+        hoverGfx.clear();
+        hoverGfx.fillStyle(CONFIG.TINT.PLANET_ATMOSPHERE, 0.08);
+        hoverGfx.fillRoundedRect(x, y, width, height, 8);
+        hoverGfx.lineStyle(2, CONFIG.TINT.PLANET_ATMOSPHERE, 1);
+        hoverGfx.strokeRoundedRect(x, y, width, height, 8);
+        hoverGfx.setAlpha(1);
+      });
+
+      hitZone.on('pointerout', () => {
+        hoverGfx.setAlpha(0);
+      });
+
+      hitZone.on('pointerdown', () => {
         if (gameManager.purchaseUpgrade(upgradeId)) {
           if (upgradeId === 'silo_repair') {
             this.siloCount++;
-            // Tell GameScene to repair a silo
             const gameScene = this.scene.get('GameScene');
             if (gameScene) gameScene.onSiloRepaired();
           }
           try { this.sound.play('upgrade', { volume: CONFIG.AUDIO.SFX.UPGRADE_VOLUME }); } catch { /* no sound */ }
-          // Refresh the scene
           this.scene.restart({
             wave: this.waveNum,
             score: gameManager.score,
@@ -157,13 +174,16 @@ export default class UpgradeScene extends Phaser.Scene {
         }
       });
 
-      return { gfx, btn };
+      return { gfx, hitZone, hoverGfx };
     }
 
     return { gfx };
   }
 
   _close() {
+    // Hide cursor again for gameplay
+    document.body.classList.add('hide-cursor');
+
     // Notify GameScene to continue
     const gameScene = this.scene.get('GameScene');
     if (gameScene) {

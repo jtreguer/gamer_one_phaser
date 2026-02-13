@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CONFIG } from '../config.js';
+import { CONFIG, TEXT_RES } from '../config.js';
 import gameManager from '../systems/GameManager.js';
 import leaderboard from '../systems/Leaderboard.js';
 
@@ -14,6 +14,7 @@ export default class GameOverScene extends Phaser.Scene {
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: size,
       color: color || CONFIG.COLORS.UI_TEXT,
+      resolution: TEXT_RES,
     });
 
     // Background

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { CONFIG } from '../config.js';
+import { CONFIG, TEXT_RES } from '../config.js';
 import { EVENTS } from '../utils/constants.js';
 import gameManager from '../systems/GameManager.js';
 
@@ -13,6 +13,7 @@ export default class UIScene extends Phaser.Scene {
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: size,
       color: color || CONFIG.COLORS.UI_TEXT,
+      resolution: TEXT_RES,
     });
 
     // Score display (top-left)
@@ -40,23 +41,16 @@ export default class UIScene extends Phaser.Scene {
     this.vignette.setDepth(99).setAlpha(0);
     this._drawVignette();
 
-    // Listen for events from GameScene
-    const gameScene = this.scene.get('GameScene');
-    if (gameScene) {
-      gameScene.events.on(EVENTS.SCORE_CHANGED, this._onScoreChanged, this);
-      gameScene.events.on(EVENTS.WAVE_STARTED, this._onWaveStarted, this);
-      gameScene.events.on(EVENTS.WAVE_COMPLETE, this._onWaveComplete, this);
-      gameScene.events.on(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
-      gameScene.events.on(EVENTS.GAME_OVER, this._onGameOver, this);
-      gameScene.events.on(EVENTS.MULTI_KILL, this._onMultiKill, this);
-    }
-
-    // Also listen on our own events
+    // Listen for events forwarded from GameScene (via UIScene.events.emit)
     this.events.on(EVENTS.SCORE_CHANGED, this._onScoreChanged, this);
     this.events.on(EVENTS.WAVE_STARTED, this._onWaveStarted, this);
     this.events.on(EVENTS.WAVE_COMPLETE, this._onWaveComplete, this);
     this.events.on(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
     this.events.on(EVENTS.GAME_OVER, this._onGameOver, this);
+    this.events.on(EVENTS.MULTI_KILL, this._onMultiKill, this);
+
+    // Register shutdown for cleanup on scene stop/restart
+    this.events.once('shutdown', this.shutdown, this);
   }
 
   _onScoreChanged(score) {
@@ -155,14 +149,11 @@ export default class UIScene extends Phaser.Scene {
   }
 
   shutdown() {
-    const gameScene = this.scene.get('GameScene');
-    if (gameScene) {
-      gameScene.events.off(EVENTS.SCORE_CHANGED, this._onScoreChanged, this);
-      gameScene.events.off(EVENTS.WAVE_STARTED, this._onWaveStarted, this);
-      gameScene.events.off(EVENTS.WAVE_COMPLETE, this._onWaveComplete, this);
-      gameScene.events.off(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
-      gameScene.events.off(EVENTS.GAME_OVER, this._onGameOver, this);
-      gameScene.events.off(EVENTS.MULTI_KILL, this._onMultiKill, this);
-    }
+    this.events.off(EVENTS.SCORE_CHANGED, this._onScoreChanged, this);
+    this.events.off(EVENTS.WAVE_STARTED, this._onWaveStarted, this);
+    this.events.off(EVENTS.WAVE_COMPLETE, this._onWaveComplete, this);
+    this.events.off(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
+    this.events.off(EVENTS.GAME_OVER, this._onGameOver, this);
+    this.events.off(EVENTS.MULTI_KILL, this._onMultiKill, this);
   }
 }

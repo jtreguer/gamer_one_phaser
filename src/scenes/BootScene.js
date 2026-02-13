@@ -1,4 +1,5 @@
-import { CONFIG } from '../config.js';
+import Phaser from 'phaser';
+import { CONFIG, TEXT_RES } from '../config.js';
 
 const SOUNDS = [
   'launch', 'detonation', 'enemy_destroy', 'silo_destroyed',
@@ -25,6 +26,7 @@ export default class BootScene extends Phaser.Scene {
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: '18px',
       color: CONFIG.COLORS.PLANET_ATMOSPHERE,
+      resolution: TEXT_RES,
     }).setOrigin(0.5);
 
     const barWidth = 30;
@@ -32,6 +34,7 @@ export default class BootScene extends Phaser.Scene {
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: '16px',
       color: CONFIG.COLORS.SILO_READY,
+      resolution: TEXT_RES,
     }).setOrigin(0.5);
 
     let progress = 0;

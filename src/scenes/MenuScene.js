@@ -1,4 +1,5 @@
-import { CONFIG } from '../config.js';
+import Phaser from 'phaser';
+import { CONFIG, TEXT_RES } from '../config.js';
 import gameManager from '../systems/GameManager.js';
 
 export default class MenuScene extends Phaser.Scene {
@@ -13,6 +14,7 @@ export default class MenuScene extends Phaser.Scene {
       fontFamily: CONFIG.FONT_FAMILY,
       fontSize: size,
       color,
+      resolution: TEXT_RES,
     });
 
     // Starfield background
