@@ -158,6 +158,34 @@ export const CONFIG = {
     },
   },
 
+  // Difficulty presets (multipliers applied to base values)
+  DIFFICULTY: {
+    pedestrian: {
+      label: 'Pedestrian',
+      speedMult: 0.65,
+      countMult: 0.65,
+      mirvWaveOffset: 3,    // MIRVs start 3 waves later
+      sineWaveOffset: 2,    // Sine starts 2 waves later
+      chanceMult: 0.7,
+    },
+    fort_alamo: {
+      label: 'Fort Alamo',
+      speedMult: 1.0,
+      countMult: 1.0,
+      mirvWaveOffset: 0,
+      sineWaveOffset: 0,
+      chanceMult: 1.0,
+    },
+    atomic: {
+      label: 'Atomic!',
+      speedMult: 1.35,
+      countMult: 1.3,
+      mirvWaveOffset: -2,   // MIRVs start 2 waves earlier
+      sineWaveOffset: -1,
+      chanceMult: 1.4,
+    },
+  },
+
   // Visual
   STAR_COUNT: 80,
   SILO_SIZE: 8,                  // triangle size for silo markers

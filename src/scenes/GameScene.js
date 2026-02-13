@@ -60,8 +60,6 @@ export default class GameScene extends Phaser.Scene {
 
     // Input
     this.input.on('pointerdown', this._onPointerDown, this);
-    this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
-    this.pauseKey.on('down', this._onPausePressed, this);
 
     // Register shutdown for cleanup on scene stop/restart
     this.events.once('shutdown', this.shutdown, this);
@@ -156,14 +154,6 @@ export default class GameScene extends Phaser.Scene {
     if (this.waveAllSpawned && this.enemies.length === 0 && this.waveActive) {
       this._onWaveComplete();
     }
-  }
-
-  // --- Pause ---
-
-  _onPausePressed() {
-    if (this.gameOver || !this.waveActive) return;
-    this.scene.pause();
-    this.scene.get('UIScene')?.events.emit('game_paused');
   }
 
   // --- Input ---
@@ -554,8 +544,6 @@ export default class GameScene extends Phaser.Scene {
     this.events.off(EVENTS.ALL_SILOS_DESTROYED, this._onAllSilosDestroyed, this);
     this.events.off(EVENTS.SILO_RELOADED, this._onSiloReloaded, this);
     this.input.off('pointerdown', this._onPointerDown, this);
-    this.pauseKey.off('down', this._onPausePressed, this);
-    this.input.keyboard.removeKey(Phaser.Input.Keyboard.KeyCodes.P);
 
     for (const i of this.interceptors) i.destroy();
     for (const b of this.blasts) b.destroy();

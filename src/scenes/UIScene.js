@@ -60,9 +60,9 @@ export default class UIScene extends Phaser.Scene {
 
     this.paused = false;
 
-    // P key for resume (UIScene stays active while GameScene is paused)
+    // P key toggles pause (handled entirely in UIScene since it stays active)
     this.pauseKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.P);
-    this.pauseKey.on('down', this._onResumePressed, this);
+    this.pauseKey.on('down', this._onPauseToggle, this);
 
     // Listen for events forwarded from GameScene (via UIScene.events.emit)
     this.events.on(EVENTS.SCORE_CHANGED, this._onScoreChanged, this);
@@ -71,7 +71,6 @@ export default class UIScene extends Phaser.Scene {
     this.events.on(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
     this.events.on(EVENTS.GAME_OVER, this._onGameOver, this);
     this.events.on(EVENTS.MULTI_KILL, this._onMultiKill, this);
-    this.events.on('game_paused', this._onGamePaused, this);
 
     // Register shutdown for cleanup on scene stop/restart
     this.events.once('shutdown', this.shutdown, this);
@@ -139,20 +138,22 @@ export default class UIScene extends Phaser.Scene {
     // Extra HUD feedback already handled in GameScene
   }
 
-  _onGamePaused() {
-    this.paused = true;
-    this.pauseBg.setVisible(true);
-    this.pauseText.setVisible(true);
-    this.pauseHint.setVisible(true);
-  }
-
-  _onResumePressed() {
-    if (!this.paused) return;
-    this.paused = false;
-    this.pauseBg.setVisible(false);
-    this.pauseText.setVisible(false);
-    this.pauseHint.setVisible(false);
-    this.scene.resume('GameScene');
+  _onPauseToggle() {
+    if (this.paused) {
+      this.paused = false;
+      this.pauseBg.setVisible(false);
+      this.pauseText.setVisible(false);
+      this.pauseHint.setVisible(false);
+      this.scene.resume('GameScene');
+    } else {
+      const gameScene = this.scene.get('GameScene');
+      if (!gameScene || gameScene.gameOver || !gameScene.waveActive) return;
+      this.paused = true;
+      this.scene.pause('GameScene');
+      this.pauseBg.setVisible(true);
+      this.pauseText.setVisible(true);
+      this.pauseHint.setVisible(true);
+    }
   }
 
   _onGameOver() {
@@ -199,8 +200,7 @@ export default class UIScene extends Phaser.Scene {
     this.events.off(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
     this.events.off(EVENTS.GAME_OVER, this._onGameOver, this);
     this.events.off(EVENTS.MULTI_KILL, this._onMultiKill, this);
-    this.events.off('game_paused', this._onGamePaused, this);
-    this.pauseKey.off('down', this._onResumePressed, this);
+    this.pauseKey.off('down', this._onPauseToggle, this);
     this.input.keyboard.removeKey(Phaser.Input.Keyboard.KeyCodes.P);
   }
 }

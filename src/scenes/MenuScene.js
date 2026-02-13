@@ -44,11 +44,45 @@ export default class MenuScene extends Phaser.Scene {
     }
 
     // Controls
-    this.add.text(cx, 460, 'CLICK TO LAUNCH INTERCEPTORS', style('12px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
-    this.add.text(cx, 480, 'DEFEND YOUR PLANET FROM INCOMING MISSILES', style('12px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
+    this.add.text(cx, 440, 'CLICK TO LAUNCH INTERCEPTORS', style('12px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
+    this.add.text(cx, 458, 'DEFEND YOUR PLANET FROM INCOMING MISSILES', style('12px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
+    this.add.text(cx, 476, 'P — PAUSE', style('12px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
 
-    // Blinking prompt
-    this.prompt = this.add.text(cx, 530, '>>> CLICK TO START <<<', style('18px', CONFIG.COLORS.MIRV)).setOrigin(0.5);
+    // Difficulty selector
+    const difficulties = [
+      { key: 'pedestrian', label: 'Pedestrian' },
+      { key: 'fort_alamo', label: 'Fort Alamo' },
+      { key: 'atomic', label: 'Atomic!' },
+    ];
+    this.selectedDifficulty = 'fort_alamo';
+    const diffButtons = [];
+
+    const diffY = 510;
+    this.add.text(cx, diffY - 20, 'DIFFICULTY', style('10px', CONFIG.COLORS.UI_TEXT)).setOrigin(0.5);
+
+    const spacing = 140;
+    const startX = cx - spacing;
+
+    difficulties.forEach((d, i) => {
+      const bx = startX + i * spacing;
+      const btn = this.add.text(bx, diffY, d.label, style('14px',
+        d.key === this.selectedDifficulty ? CONFIG.COLORS.PLANET_ATMOSPHERE : CONFIG.COLORS.UI_TEXT
+      )).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      btn.on('pointerover', () => { if (d.key !== this.selectedDifficulty) btn.setColor(CONFIG.COLORS.WHITE); });
+      btn.on('pointerout', () => { btn.setColor(d.key === this.selectedDifficulty ? CONFIG.COLORS.PLANET_ATMOSPHERE : CONFIG.COLORS.UI_TEXT); });
+      btn.on('pointerdown', () => {
+        this.selectedDifficulty = d.key;
+        diffButtons.forEach((b, j) => {
+          b.setColor(difficulties[j].key === d.key ? CONFIG.COLORS.PLANET_ATMOSPHERE : CONFIG.COLORS.UI_TEXT);
+        });
+      });
+      diffButtons.push(btn);
+    });
+
+    // Blinking start button
+    this.prompt = this.add.text(cx, 555, '>>> CLICK TO START <<<', style('18px', CONFIG.COLORS.MIRV))
+      .setOrigin(0.5).setInteractive({ useHandCursor: true });
     this.tweens.add({
       targets: this.prompt,
       alpha: 0.2,
@@ -59,8 +93,9 @@ export default class MenuScene extends Phaser.Scene {
     });
 
     // Start on click (also unlocks audio)
-    this.input.once('pointerdown', () => {
+    this.prompt.on('pointerdown', () => {
       gameManager.reset();
+      gameManager.setDifficulty(this.selectedDifficulty);
       gameManager.startGame();
       this.scene.start('GameScene');
       this.scene.launch('UIScene');

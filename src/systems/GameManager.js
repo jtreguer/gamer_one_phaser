@@ -18,11 +18,16 @@ class GameManager {
     this.totalEnemiesDestroyed = 0;
     this.waveSilosLost = 0;
     this.activeSiloCount = CONFIG.INITIAL_SILO_COUNT;
+    this.difficulty = CONFIG.DIFFICULTY.fort_alamo;
     this.upgradeLevel = {
       interceptor_speed: 0,
       blast_radius: 0,
       reload_speed: 0,
     };
+  }
+
+  setDifficulty(key) {
+    this.difficulty = CONFIG.DIFFICULTY[key] || CONFIG.DIFFICULTY.fort_alamo;
   }
 
   startGame() {
@@ -151,25 +156,28 @@ class GameManager {
   // --- Wave generation (GDD 5.1 formulas) ---
 
   generateWaveData(waveNum) {
+    const d = this.difficulty;
+
     const enemyCount = Math.min(
-      CONFIG.INITIAL_ENEMY_COUNT + (waveNum - 1) * CONFIG.ENEMY_COUNT_ESCALATION,
+      Math.round((CONFIG.INITIAL_ENEMY_COUNT + (waveNum - 1) * CONFIG.ENEMY_COUNT_ESCALATION) * d.countMult),
       CONFIG.ENEMY_COUNT_CAP
     );
 
     const speedMin = Math.min(
-      CONFIG.ENEMY_SPEED_MIN_BASE + (waveNum - 1) * CONFIG.ENEMY_SPEED_ESCALATION,
+      (CONFIG.ENEMY_SPEED_MIN_BASE + (waveNum - 1) * CONFIG.ENEMY_SPEED_ESCALATION) * d.speedMult,
       CONFIG.ENEMY_SPEED_CAP - 20
     );
 
     const speedMax = Math.min(
-      CONFIG.ENEMY_SPEED_MAX_BASE + (waveNum - 1) * CONFIG.ENEMY_SPEED_MAX_ESCALATION,
+      (CONFIG.ENEMY_SPEED_MAX_BASE + (waveNum - 1) * CONFIG.ENEMY_SPEED_MAX_ESCALATION) * d.speedMult,
       CONFIG.ENEMY_SPEED_CAP
     );
 
+    const mirvStartWave = CONFIG.MIRV_START_WAVE + d.mirvWaveOffset;
     let mirvChance = 0;
-    if (waveNum >= CONFIG.MIRV_START_WAVE) {
+    if (waveNum >= mirvStartWave) {
       mirvChance = Math.min(
-        CONFIG.MIRV_BASE_CHANCE + (waveNum - CONFIG.MIRV_START_WAVE) * CONFIG.MIRV_CHANCE_PER_WAVE,
+        (CONFIG.MIRV_BASE_CHANCE + (waveNum - mirvStartWave) * CONFIG.MIRV_CHANCE_PER_WAVE) * d.chanceMult,
         CONFIG.MIRV_CHANCE_CAP
       );
     }
@@ -181,10 +189,11 @@ class GameManager {
       mirvMaxWarheads = 3;
     }
 
+    const sineStartWave = CONFIG.SINE_START_WAVE + d.sineWaveOffset;
     let sineChance = 0;
-    if (waveNum >= CONFIG.SINE_START_WAVE) {
+    if (waveNum >= sineStartWave) {
       sineChance = Math.min(
-        CONFIG.SINE_BASE_CHANCE + (waveNum - CONFIG.SINE_START_WAVE) * CONFIG.SINE_CHANCE_PER_WAVE,
+        (CONFIG.SINE_BASE_CHANCE + (waveNum - sineStartWave) * CONFIG.SINE_CHANCE_PER_WAVE) * d.chanceMult,
         CONFIG.SINE_CHANCE_CAP
       );
     }
