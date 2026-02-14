@@ -10,6 +10,10 @@ export default class SoundManager {
     this.droneNodes = [];
     this.bleepTimer = null;
     this.running = false;
+    this.droneIntensity = 0;
+    this.droneFilter = null;
+    this.droneLfo = null;
+    this.droneSaw = null;
   }
 
   init() {
@@ -67,8 +71,8 @@ export default class SoundManager {
     this.scene.sound.play('detonation', { volume: AUDIO().SFX.DETONATION_VOLUME });
   }
 
-  playEnemyDestroy() {
-    this.scene.sound.play('enemy_destroy', { volume: AUDIO().SFX.ENEMY_DESTROY_VOLUME });
+  playEnemyDestroy(rate = 1.0) {
+    this.scene.sound.play('enemy_destroy', { volume: AUDIO().SFX.ENEMY_DESTROY_VOLUME, rate });
   }
 
   playSiloDestroyed() {
@@ -152,6 +156,35 @@ export default class SoundManager {
     lfo.start(now);
 
     this.droneNodes.push(sub, subGain, saw, filter, lfo, lfoGain, droneGain);
+    this.droneFilter = filter;
+    this.droneLfo = lfo;
+    this.droneSaw = saw;
+  }
+
+  setDroneIntensity(level) {
+    if (this.droneIntensity === level) return;
+    this.droneIntensity = level;
+
+    if (!this.ctx || !this.droneFilter) return;
+    const cfg = AUDIO().AMBIENT;
+    const now = this.ctx.currentTime;
+
+    if (level === 2) {
+      // Last stand: higher filter, faster LFO, raised pitch
+      this.droneFilter.frequency.linearRampToValueAtTime(cfg.DRONE_FILTER_FREQ * 2.5, now + 0.5);
+      this.droneLfo.frequency.linearRampToValueAtTime(cfg.DRONE_LFO_RATE * 3, now + 0.5);
+      this.droneSaw.detune.linearRampToValueAtTime(200, now + 0.5);
+    } else if (level === 1) {
+      // Warning: slight raise
+      this.droneFilter.frequency.linearRampToValueAtTime(cfg.DRONE_FILTER_FREQ * 1.5, now + 0.5);
+      this.droneLfo.frequency.linearRampToValueAtTime(cfg.DRONE_LFO_RATE * 1.5, now + 0.5);
+      this.droneSaw.detune.linearRampToValueAtTime(50, now + 0.5);
+    } else {
+      // Normal
+      this.droneFilter.frequency.linearRampToValueAtTime(cfg.DRONE_FILTER_FREQ, now + 0.5);
+      this.droneLfo.frequency.linearRampToValueAtTime(cfg.DRONE_LFO_RATE, now + 0.5);
+      this.droneSaw.detune.linearRampToValueAtTime(0, now + 0.5);
+    }
   }
 
   _scheduleBleep() {

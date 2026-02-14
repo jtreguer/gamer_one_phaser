@@ -32,6 +32,16 @@ export default class GameScene extends Phaser.Scene {
     this.gameOver = false;
     this.waveActive = false;
 
+    // Kill streak state
+    this.streakKills = 0;
+    this.streakTimer = 0;
+    this.streakMultiplier = 1.0;
+
+    // Slow-mo state
+    this.timeScale = 1.0;
+    this.slowmoTimer = 0;
+    this.slowmoPhase = null; // 'ramp_down', 'hold', 'ramp_up'
+
     // Sound
     this.soundManager = new SoundManager(this);
     this.soundManager.init();
@@ -77,26 +87,57 @@ export default class GameScene extends Phaser.Scene {
   update(time, delta) {
     if (this.gameOver) return;
 
+    // Slow-mo: compute timeScale using real delta (unscaled)
+    const realDt = delta / 1000;
+    this._updateSlowmo(realDt);
+
+    // Scale delta for all game objects
+    const scaledDelta = delta * this.timeScale;
+
     // Update background
     this.background.update(time);
 
     // Update planet (rotation)
-    this.planet.update(delta);
+    this.planet.update(scaledDelta);
 
     // Update silos
     this.siloManager.update(
-      delta, this.planetX, this.planetY,
+      scaledDelta, this.planetX, this.planetY,
       CONFIG.PLANET_RADIUS, this.planet.currentRotation
     );
     gameManager.activeSiloCount = this.siloManager.getActiveCount();
 
+    // Update drone intensity based on silo count
+    if (gameManager.activeSiloCount === 1) {
+      this.soundManager.setDroneIntensity(2);
+    } else if (gameManager.activeSiloCount <= 2) {
+      this.soundManager.setDroneIntensity(1);
+    } else {
+      this.soundManager.setDroneIntensity(0);
+    }
+
+    // Track last stand state
+    const wasLastStand = gameManager.lastStandActive;
+    gameManager.lastStandActive = gameManager.activeSiloCount === 1;
+    if (gameManager.lastStandActive && !wasLastStand) {
+      const uiScene = this.scene.get('UIScene');
+      if (uiScene) {
+        uiScene.events.emit(EVENTS.LAST_STAND, true);
+      }
+    } else if (!gameManager.lastStandActive && wasLastStand) {
+      const uiScene = this.scene.get('UIScene');
+      if (uiScene) {
+        uiScene.events.emit(EVENTS.LAST_STAND, false);
+      }
+    }
+
     // Update crosshair
-    this.crosshair.update(delta);
+    this.crosshair.update(scaledDelta);
 
     // Update interceptors
     for (let i = this.interceptors.length - 1; i >= 0; i--) {
       const interceptor = this.interceptors[i];
-      interceptor.update(delta);
+      interceptor.update(scaledDelta);
       if (interceptor.detonated || !interceptor.alive) {
         this.interceptors.splice(i, 1);
       }
@@ -105,7 +146,7 @@ export default class GameScene extends Phaser.Scene {
     // Update blasts and check hits
     for (let i = this.blasts.length - 1; i >= 0; i--) {
       const blast = this.blasts[i];
-      blast.update(delta);
+      blast.update(scaledDelta);
 
       if (blast.lethal) {
         this._checkBlastHits(blast);
@@ -124,7 +165,7 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
 
-      enemy.update(delta, this.planetX, this.planetY);
+      enemy.update(scaledDelta, this.planetX, this.planetY);
 
       // MIRV split check
       if (enemy instanceof MirvMissile && !enemy.hasSplit) {
@@ -147,13 +188,63 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
+    // Update streak timer (uses real dt, not scaled)
+    if (this.streakKills > 0) {
+      this.streakTimer -= realDt;
+      if (this.streakTimer <= 0) {
+        this.streakKills = 0;
+        this.streakTimer = 0;
+        this.streakMultiplier = 1.0;
+        const uiScene = this.scene.get('UIScene');
+        if (uiScene) {
+          uiScene.events.emit(EVENTS.STREAK_CHANGED, 0, 1.0);
+        }
+      }
+    }
+
     // Update popups
-    this._updatePopups(delta);
+    this._updatePopups(scaledDelta);
 
     // Check wave completion
     if (this.waveAllSpawned && this.enemies.length === 0 && this.waveActive) {
       this._onWaveComplete();
     }
+  }
+
+  // --- Slow-mo ---
+
+  _updateSlowmo(realDt) {
+    if (!this.slowmoPhase) return;
+
+    this.slowmoTimer -= realDt;
+
+    if (this.slowmoPhase === 'ramp_down') {
+      const progress = 1 - (this.slowmoTimer / CONFIG.SLOWMO_RAMP_DOWN);
+      this.timeScale = 1.0 - (1.0 - CONFIG.SLOWMO_SCALE) * Math.min(progress, 1);
+      if (this.slowmoTimer <= 0) {
+        this.slowmoPhase = 'hold';
+        this.slowmoTimer = CONFIG.SLOWMO_HOLD;
+        this.timeScale = CONFIG.SLOWMO_SCALE;
+      }
+    } else if (this.slowmoPhase === 'hold') {
+      this.timeScale = CONFIG.SLOWMO_SCALE;
+      if (this.slowmoTimer <= 0) {
+        this.slowmoPhase = 'ramp_up';
+        this.slowmoTimer = CONFIG.SLOWMO_RAMP_UP;
+      }
+    } else if (this.slowmoPhase === 'ramp_up') {
+      const progress = 1 - (this.slowmoTimer / CONFIG.SLOWMO_RAMP_UP);
+      this.timeScale = CONFIG.SLOWMO_SCALE + (1.0 - CONFIG.SLOWMO_SCALE) * Math.min(progress, 1);
+      if (this.slowmoTimer <= 0) {
+        this.slowmoPhase = null;
+        this.timeScale = 1.0;
+      }
+    }
+  }
+
+  _triggerSlowmo() {
+    this.slowmoPhase = 'ramp_down';
+    this.slowmoTimer = CONFIG.SLOWMO_RAMP_DOWN;
   }
 
   // --- Input ---
@@ -204,7 +295,7 @@ export default class GameScene extends Phaser.Scene {
       if (!enemy.alive) continue;
 
       if (blast.isInRange(enemy.x, enemy.y)) {
-        // Determine points
+        // Determine base points
         let points;
         if (enemy.isMirv && !enemy.hasSplit) {
           points = CONFIG.POINTS_MIRV_PRESPLIT;
@@ -216,15 +307,44 @@ export default class GameScene extends Phaser.Scene {
           points = CONFIG.POINTS_ENEMY_KILL;
         }
 
+        // Update streak
+        this.streakKills++;
+        this.streakTimer = CONFIG.STREAK_WINDOW;
+        this.streakMultiplier = Math.min(
+          1 + this.streakKills * CONFIG.STREAK_MULT_PER_KILL,
+          CONFIG.STREAK_MAX_MULT
+        );
+
+        // Apply streak multiplier
+        points = Math.floor(points * this.streakMultiplier);
+
+        // Pitch-rising SFX
+        const rate = Math.min(
+          CONFIG.PITCH_BASE + this.streakKills * CONFIG.PITCH_PER_KILL,
+          CONFIG.PITCH_MAX
+        );
+
         enemy.kill();
         gameManager.addScore(points);
         gameManager.recordShotHit();
         gameManager.totalEnemiesDestroyed++;
         killCount++;
 
-        this.soundManager.playEnemyDestroy();
+        this.soundManager.playEnemyDestroy(rate);
         this._showScorePopup(enemy.x, enemy.y, points);
         this.scene.get('UIScene')?.events.emit(EVENTS.SCORE_CHANGED, gameManager.score);
+
+        // Emit streak changed to UI
+        const uiScene = this.scene.get('UIScene');
+        if (uiScene) {
+          uiScene.events.emit(EVENTS.STREAK_CHANGED, this.streakKills, this.streakMultiplier);
+        }
+
+        // Chain reaction: spawn chain blast at enemy position
+        if (blast.chainDepth < CONFIG.CHAIN_MAX_DEPTH) {
+          const chainBlast = new Blast(this, enemy.x, enemy.y, blast.chainDepth + 1);
+          this.blasts.push(chainBlast);
+        }
       }
     }
 
@@ -234,9 +354,10 @@ export default class GameScene extends Phaser.Scene {
       gameManager.addScore(multiBonus);
       this.scene.get('UIScene')?.events.emit(EVENTS.SCORE_CHANGED, gameManager.score);
 
-      if (killCount >= 3) {
+      if (killCount >= CONFIG.SLOWMO_MIN_KILLS) {
         this.cameras.main.shake(200, 0.01);
         this.soundManager.playMultiKill();
+        this._triggerSlowmo();
       } else {
         this.cameras.main.shake(120, 0.006);
       }
@@ -324,6 +445,11 @@ export default class GameScene extends Phaser.Scene {
     this.waveActive = true;
     const waveData = gameManager.startNextWave();
 
+    // Reset streak at wave start
+    this.streakKills = 0;
+    this.streakTimer = 0;
+    this.streakMultiplier = 1.0;
+
     // Notify UI
     const uiScene = this.scene.get('UIScene');
     if (uiScene) {
@@ -354,6 +480,17 @@ export default class GameScene extends Phaser.Scene {
     if (uiScene) {
       uiScene.events.emit(EVENTS.WAVE_COMPLETE, gameManager.currentWave, bonus);
       uiScene.events.emit(EVENTS.SCORE_CHANGED, gameManager.score);
+
+      // Perfect wave celebration
+      if (gameManager.lastWavePerfect) {
+        uiScene.events.emit(EVENTS.PERFECT_WAVE, gameManager.currentWave);
+        // Camera zoom punch
+        this.cameras.main.zoomTo(1.05, 150, 'Quad.easeOut', false, (cam, progress) => {
+          if (progress === 1) {
+            this.cameras.main.zoomTo(1.0, 300, 'Quad.easeIn');
+          }
+        });
+      }
     }
 
     // Transition to upgrade shop after brief delay
@@ -396,18 +533,31 @@ export default class GameScene extends Phaser.Scene {
   // --- Visual effects ---
 
   _showScorePopup(x, y, points) {
+    // Find the matching escalation tier based on streak
+    const tiers = CONFIG.POPUP_ESCALATION;
+    let tier = tiers[0];
+    for (let i = tiers.length - 1; i >= 0; i--) {
+      if (this.streakKills >= tiers[i].minStreak) {
+        tier = tiers[i];
+        break;
+      }
+    }
+
+    const riseDistance = 40 + (tier.fontSize - 14) * 1.5;
+    const duration = 1200 + (tier.fontSize - 14) * 30;
+
     const text = this.add.text(x, y - 10, `+${points}`, {
       fontFamily: CONFIG.FONT_FAMILY,
-      fontSize: '14px',
-      color: CONFIG.COLORS.SCORE_POPUP,
+      fontSize: `${tier.fontSize}px`,
+      color: tier.color,
       resolution: TEXT_RES,
     }).setOrigin(0.5).setDepth(60);
 
     this.tweens.add({
       targets: text,
-      y: y - 50,
+      y: y - 10 - riseDistance,
       alpha: 0,
-      duration: 1200,
+      duration,
       ease: 'Power2',
       onComplete: () => text.destroy(),
     });

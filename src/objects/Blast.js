@@ -4,11 +4,15 @@ import { distanceSq } from '../utils/math.js';
 import gameManager from '../systems/GameManager.js';
 
 export default class Blast {
-  constructor(scene, x, y) {
+  constructor(scene, x, y, chainDepth = 0) {
     this.scene = scene;
     this.x = x;
     this.y = y;
-    this.maxRadius = gameManager.getEffectiveBlastRadius();
+    this.chainDepth = chainDepth;
+    this.isChain = chainDepth > 0;
+
+    const baseRadius = gameManager.getEffectiveBlastRadius();
+    this.maxRadius = baseRadius * Math.pow(CONFIG.CHAIN_RADIUS_MULT, chainDepth);
     this.currentRadius = 0;
     this.phase = BLAST_PHASE.EXPANDING;
     this.alive = true;
@@ -74,17 +78,20 @@ export default class Blast {
       alpha = 1 - (this.timer / this.fadeTime);
     }
 
+    const edgeColor = this.isChain ? CONFIG.CHAIN_BLAST_TINT : CONFIG.TINT.BLAST_EDGE;
+    const coreColor = this.isChain ? CONFIG.CHAIN_BLAST_TINT : CONFIG.TINT.BLAST_CORE;
+
     // Outer ring
-    g.lineStyle(2, CONFIG.TINT.BLAST_EDGE, alpha * 0.6);
+    g.lineStyle(2, edgeColor, alpha * 0.6);
     g.strokeCircle(this.x, this.y, this.currentRadius);
 
     // Filled circle with gradient effect
-    g.fillStyle(CONFIG.TINT.BLAST_EDGE, alpha * 0.15);
+    g.fillStyle(edgeColor, alpha * 0.15);
     g.fillCircle(this.x, this.y, this.currentRadius);
 
     // Inner core
     const coreRadius = this.currentRadius * 0.4;
-    g.fillStyle(CONFIG.TINT.BLAST_CORE, alpha * 0.5);
+    g.fillStyle(coreColor, alpha * (this.isChain ? 0.4 : 0.5));
     g.fillCircle(this.x, this.y, coreRadius);
   }
 

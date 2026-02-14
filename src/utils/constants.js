@@ -35,4 +35,7 @@ export const EVENTS = {
   CLICK_REJECTED: 'click_rejected',
   MULTI_KILL: 'multi_kill',
   SHOP_CLOSED: 'shop_closed',
+  STREAK_CHANGED: 'streak_changed',
+  PERFECT_WAVE: 'perfect_wave',
+  LAST_STAND: 'last_stand',
 };

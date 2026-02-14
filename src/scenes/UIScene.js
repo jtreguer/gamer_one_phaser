@@ -32,6 +32,10 @@ export default class UIScene extends Phaser.Scene {
     this.siloText = this.add.text(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT - 20, `SILOS: ${CONFIG.INITIAL_SILO_COUNT}`, style('12px', CONFIG.COLORS.SILO_READY))
       .setOrigin(0.5, 1).setDepth(100);
 
+    // Streak multiplier display (below score)
+    this.streakText = this.add.text(15, 30, '', style('14px', '#ffdd00'))
+      .setDepth(100).setAlpha(0);
+
     // Wave announcement (large, centered)
     this.announceText = this.add.text(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 100, '', style('28px', CONFIG.COLORS.PLANET_ATMOSPHERE))
       .setOrigin(0.5).setDepth(101).setAlpha(0);
@@ -40,6 +44,11 @@ export default class UIScene extends Phaser.Scene {
     this._createVignetteTexture();
     this.vignette = this.add.image(CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2, '__vignette')
       .setDepth(99).setAlpha(0);
+
+    // Last stand state
+    this.lastStandActive = false;
+    this.siloPulseTween = null;
+    this.vignettePulseTween = null;
 
     // Pause overlay (hidden by default)
     this.pauseBg = this.add.rectangle(
@@ -71,6 +80,9 @@ export default class UIScene extends Phaser.Scene {
     this.events.on(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
     this.events.on(EVENTS.GAME_OVER, this._onGameOver, this);
     this.events.on(EVENTS.MULTI_KILL, this._onMultiKill, this);
+    this.events.on(EVENTS.STREAK_CHANGED, this._onStreakChanged, this);
+    this.events.on(EVENTS.PERFECT_WAVE, this._onPerfectWave, this);
+    this.events.on(EVENTS.LAST_STAND, this._onLastStand, this);
 
     // Register shutdown for cleanup on scene stop/restart
     this.events.once('shutdown', this.shutdown, this);
@@ -127,10 +139,167 @@ export default class UIScene extends Phaser.Scene {
     // Warning state
     if (count <= 2) {
       this.siloText.setColor(CONFIG.COLORS.ENEMY);
-      this._showWarningVignette(true);
+      if (count > 1) {
+        this._showWarningVignette(true);
+      }
     } else {
       this.siloText.setColor(CONFIG.COLORS.SILO_READY);
       this._showWarningVignette(false);
+    }
+  }
+
+  _onStreakChanged(streakKills, multiplier) {
+    if (multiplier <= 1.0) {
+      // Fade out streak display
+      this.tweens.add({
+        targets: this.streakText,
+        alpha: 0,
+        duration: 300,
+      });
+      return;
+    }
+
+    // Update text
+    this.streakText.setText(`x${multiplier.toFixed(1)}`);
+
+    // Color escalation
+    if (multiplier >= 2.5) {
+      this.streakText.setColor('#ff4040'); // red
+    } else if (multiplier >= 2.0) {
+      this.streakText.setColor('#ff8830'); // orange
+    } else if (multiplier >= 1.5) {
+      this.streakText.setColor('#ffdd00'); // yellow
+    } else {
+      this.streakText.setColor('#ffffff'); // white
+    }
+
+    // Show and pulse
+    this.streakText.setAlpha(1);
+    this.tweens.add({
+      targets: this.streakText,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 80,
+      yoyo: true,
+      ease: 'Quad.easeOut',
+    });
+  }
+
+  _onPerfectWave(waveNum) {
+    // Gold screen flash
+    const flash = this.add.rectangle(
+      CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2,
+      CONFIG.GAME_WIDTH, CONFIG.GAME_HEIGHT,
+      0xffd700, 0.15
+    ).setDepth(98);
+    this.tweens.add({
+      targets: flash,
+      alpha: 0,
+      duration: 600,
+      onComplete: () => flash.destroy(),
+    });
+
+    // "PERFECT WAVE!" text
+    const perfectText = this.add.text(
+      CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 50,
+      'PERFECT WAVE!', {
+        fontFamily: CONFIG.FONT_FAMILY,
+        fontSize: '32px',
+        color: '#ffd700',
+        resolution: TEXT_RES,
+      }
+    ).setOrigin(0.5).setDepth(102).setScale(0.5);
+
+    this.tweens.add({
+      targets: perfectText,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      duration: 300,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: perfectText,
+          scaleX: 1.0,
+          scaleY: 1.0,
+          duration: 150,
+          onComplete: () => {
+            this.tweens.add({
+              targets: perfectText,
+              alpha: 0,
+              y: perfectText.y - 30,
+              duration: 1200,
+              delay: 800,
+              ease: 'Power2',
+              onComplete: () => perfectText.destroy(),
+            });
+          },
+        });
+      },
+    });
+  }
+
+  _onLastStand(active) {
+    if (active && !this.lastStandActive) {
+      this.lastStandActive = true;
+
+      // Show "LAST STAND!" announcement
+      const lastStandText = this.add.text(
+        CONFIG.GAME_WIDTH / 2, CONFIG.GAME_HEIGHT / 2 - 60,
+        'LAST STAND!', {
+          fontFamily: CONFIG.FONT_FAMILY,
+          fontSize: '26px',
+          color: '#ff4040',
+          resolution: TEXT_RES,
+        }
+      ).setOrigin(0.5).setDepth(102);
+
+      this.tweens.add({
+        targets: lastStandText,
+        alpha: 0,
+        y: lastStandText.y - 40,
+        duration: 2000,
+        delay: 1000,
+        ease: 'Power2',
+        onComplete: () => lastStandText.destroy(),
+      });
+
+      // Pulsing vignette
+      this.vignette.setAlpha(0.7);
+      this.vignettePulseTween = this.tweens.add({
+        targets: this.vignette,
+        alpha: { from: 0.5, to: 0.8 },
+        duration: 800,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+
+      // Pulsing silo text
+      this.siloText.setColor('#ff4040');
+      this.siloPulseTween = this.tweens.add({
+        targets: this.siloText,
+        alpha: { from: 0.5, to: 1.0 },
+        duration: 500,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+    } else if (!active && this.lastStandActive) {
+      this.lastStandActive = false;
+
+      // Stop pulsing
+      if (this.vignettePulseTween) {
+        this.vignettePulseTween.stop();
+        this.vignettePulseTween = null;
+      }
+      if (this.siloPulseTween) {
+        this.siloPulseTween.stop();
+        this.siloPulseTween = null;
+        this.siloText.setAlpha(1);
+      }
+
+      this._showWarningVignette(false);
+      this.siloText.setColor(CONFIG.COLORS.SILO_READY);
     }
   }
 
@@ -162,6 +331,8 @@ export default class UIScene extends Phaser.Scene {
   }
 
   _showWarningVignette(show) {
+    // Don't override last stand pulsing vignette
+    if (this.lastStandActive) return;
     this.tweens.add({
       targets: this.vignette,
       alpha: show ? 0.5 : 0,
@@ -200,7 +371,19 @@ export default class UIScene extends Phaser.Scene {
     this.events.off(EVENTS.SILO_DESTROYED, this._onSiloCountChanged, this);
     this.events.off(EVENTS.GAME_OVER, this._onGameOver, this);
     this.events.off(EVENTS.MULTI_KILL, this._onMultiKill, this);
+    this.events.off(EVENTS.STREAK_CHANGED, this._onStreakChanged, this);
+    this.events.off(EVENTS.PERFECT_WAVE, this._onPerfectWave, this);
+    this.events.off(EVENTS.LAST_STAND, this._onLastStand, this);
     this.pauseKey.off('down', this._onPauseToggle, this);
     this.input.keyboard.removeKey(Phaser.Input.Keyboard.KeyCodes.P);
+
+    if (this.vignettePulseTween) {
+      this.vignettePulseTween.stop();
+      this.vignettePulseTween = null;
+    }
+    if (this.siloPulseTween) {
+      this.siloPulseTween.stop();
+      this.siloPulseTween = null;
+    }
   }
 }

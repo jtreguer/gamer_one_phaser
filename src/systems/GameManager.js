@@ -18,6 +18,8 @@ class GameManager {
     this.totalEnemiesDestroyed = 0;
     this.waveSilosLost = 0;
     this.activeSiloCount = CONFIG.INITIAL_SILO_COUNT;
+    this.lastWavePerfect = false;
+    this.lastStandActive = false;
     this.difficulty = CONFIG.DIFFICULTY.fort_alamo;
     this.upgradeLevel = {
       interceptor_speed: 0,
@@ -105,6 +107,18 @@ class GameManager {
     // Accuracy bonus
     if (this.getWaveAccuracy() >= CONFIG.ACCURACY_BONUS_THRESHOLD) {
       bonus += CONFIG.ACCURACY_BONUS * this.currentWave;
+    }
+
+    // Perfect wave bonus (no silos lost + accuracy >= threshold)
+    this.lastWavePerfect = false;
+    if (this.waveSilosLost === 0 && this.getWaveAccuracy() >= CONFIG.ACCURACY_BONUS_THRESHOLD) {
+      bonus += CONFIG.PERFECT_WAVE_BONUS * this.currentWave;
+      this.lastWavePerfect = true;
+    }
+
+    // Last stand bonus (survived wave with only 1 silo)
+    if (this.activeSiloCount === 1) {
+      bonus += CONFIG.LAST_STAND_BONUS * this.currentWave;
     }
 
     return bonus;

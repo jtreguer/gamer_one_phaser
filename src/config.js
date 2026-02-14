@@ -196,6 +196,42 @@ export const CONFIG = {
   STAR_TWINKLE_MIN: 0.3,
   STAR_TWINKLE_MAX: 1.0,
 
+  // Chain Reactions
+  CHAIN_RADIUS_MULT: 0.55,
+  CHAIN_MAX_DEPTH: 3,
+  CHAIN_BLAST_TINT: 0xffaa40,
+
+  // Kill Streak Multiplier
+  STREAK_WINDOW: 3.0,
+  STREAK_MULT_PER_KILL: 0.1,
+  STREAK_MAX_MULT: 3.0,
+
+  // Slow-Mo on Big Kills
+  SLOWMO_SCALE: 0.3,
+  SLOWMO_HOLD: 0.25,
+  SLOWMO_RAMP_DOWN: 0.05,
+  SLOWMO_RAMP_UP: 0.15,
+  SLOWMO_MIN_KILLS: 3,
+
+  // Perfect Wave Bonus
+  PERFECT_WAVE_BONUS: 1000,
+
+  // Kill Number Escalation
+  POPUP_ESCALATION: [
+    { minStreak: 0, fontSize: 14, color: '#ffd040' },
+    { minStreak: 3, fontSize: 16, color: '#ffaa40' },
+    { minStreak: 6, fontSize: 19, color: '#ff6633' },
+    { minStreak: 10, fontSize: 22, color: '#ffffff' },
+  ],
+
+  // Last Stand Mode
+  LAST_STAND_BONUS: 2000,
+
+  // Pitch-Rising SFX
+  PITCH_BASE: 0.8,
+  PITCH_PER_KILL: 0.06,
+  PITCH_MAX: 2.0,
+
   // Audio
   AUDIO: {
     MASTER_VOLUME: 0.3,
